@@ -681,7 +681,7 @@ function SetupScreen({ threshold, setThreshold, thresholdPct, onStart }) {
           <div className="control-label">
             <span>Rumore massimo consentito</span><span>{threshold} dB</span>
           </div>
-          <input type="range" min={DB_MIN} max={DB_MAX} step="1" value={threshold}
+          <input type="range" min={DB_MIN} max={DB_MAX} step="0.5" value={threshold}
             onChange={e => setThreshold(Number(e.target.value))}
             style={{ background: `linear-gradient(to right,#a8b4ff ${thresholdPct}%,#16213e ${thresholdPct}%)` }} />
           <div className="slider-hints"><span>Quiete (40 dB)</span><span>Caos (90 dB)</span></div>
@@ -976,7 +976,7 @@ function App() {
   const [bars, setBars]               = useState(Array(NUM_BARS).fill(0));
 
   // Shared
-  const [threshold, setThreshold]       = useState(70);
+  const [threshold, setThreshold]       = useState(51);
   const [calibrating, setCalibrating]   = useState(false);
   const [calCountdown, setCalCountdown] = useState(CALIBRATE_SECS);
   const [calProgress, setCalProgress]   = useState(0);
@@ -1004,7 +1004,8 @@ function App() {
   const [semaforoFlash, setSemaforoFlash]   = useState(false);
 
   // UI
-  const [muted, setMuted] = useState(false);
+  const [muted, setMuted]               = useState(false);
+  const [monitorPaused, setMonitorPaused] = useState(false);
 
   // Refs (read inside RAF without stale closures)
   const audioCtxRef       = useRef(null);
@@ -1024,6 +1025,7 @@ function App() {
   const alertCooldownRef  = useRef(0);
   const donePlayedRef     = useRef(false);
   const mutedRef          = useRef(false);
+  const monitorPausedRef  = useRef(false);
   const bcRef             = useRef(null);
   const displayStateRef   = useRef({});
 
@@ -1038,6 +1040,7 @@ function App() {
   useEffect(() => { penaltySecRef.current = penaltySeconds; },  [penaltySeconds]);
   useEffect(() => { breakPausedRef.current = breakPaused; },    [breakPaused]);
   useEffect(() => { mutedRef.current = muted; },                [muted]);
+  useEffect(() => { monitorPausedRef.current = monitorPaused; }, [monitorPaused]);
 
   // BroadcastChannel lifecycle (monitor screen only)
   useEffect(() => {
@@ -1167,7 +1170,7 @@ function App() {
       // Violation detection
       const thr = thresholdPctRef.current;
       const m   = modeRef.current;
-      if (m) {
+      if (m && !monitorPausedRef.current) {
         if (pct >= thr) {
           if (!violationStartRef.current) {
             violationStartRef.current = Date.now();
@@ -1254,6 +1257,7 @@ function App() {
   const handleBackToSetup = () => {
     stopAudio();
     if (calibrating) { clearInterval(calTimerRef.current); setCalibrating(false); }
+    setMonitorPaused(false);
     setScreen('setup'); setMode(null);
   };
 
@@ -1274,6 +1278,11 @@ function App() {
           </p>
         </div>
         <div className="header-actions">
+          <button className={`btn-icon-sm${monitorPaused ? ' muted' : ''}`}
+            onClick={() => { setMonitorPaused(p => !p); violationStartRef.current = null; }}
+            title={monitorPaused ? 'Riprendi monitoraggio' : 'Metti in pausa il monitoraggio'}>
+            {monitorPaused ? '▶' : '⏸'}
+          </button>
           <button className={`btn-icon-sm${muted ? ' muted' : ''}`}
             onClick={() => setMuted(m => !m)}
             title={muted ? 'Riattiva suoni' : 'Silenzia suoni'}>
@@ -1352,7 +1361,7 @@ function App() {
       <div className="monitor-footer">
         <div className="control-group" style={{ flex: 1 }}>
           <div className="control-label"><span>Soglia</span><span>{threshold} dB</span></div>
-          <input type="range" min={DB_MIN} max={DB_MAX} step="1" value={threshold}
+          <input type="range" min={DB_MIN} max={DB_MAX} step="0.5" value={threshold}
             onChange={e => setThreshold(Number(e.target.value))}
             style={{ background: `linear-gradient(to right,#a8b4ff ${thresholdPct}%,#16213e ${thresholdPct}%)` }} />
         </div>
